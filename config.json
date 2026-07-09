@@ -1,0 +1,28 @@
+{
+  "serier": {
+    "tomat-source": {
+      "overlays": [
+        { "sti": "skabeloner/tomat-source/venstre_bar.png", "x": 0, "y": 0 },
+        { "sti": "skabeloner/tomat-source/hoejre_bar.png", "x": 1200, "y": 0 }
+      ],
+      "logoer": [
+        { "sti": "skabeloner/fælles/alle-kan-kode-logo.png", "x": 50, "y": 50 },
+        { "sti": "skabeloner/tomat-source/tomat_logo.png", "x": 1600, "y": 50 }
+      ],
+      "ekstra_logo": {
+        "x": 1750,
+        "y": 50,
+        "bredde": 100,
+        "hoejde": 100
+      },
+      "tekst_opsætning": {
+        "skrifttype": "skabeloner/fælles/Ubuntu-Bold.ttf",
+        "størrelse": 65,
+        "farve": [255, 255, 255],
+        "x": 1300,
+        "y": 400,
+        "linjeafstand": 15
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+README.md
+generator.py
+pyproject.toml
+autotubenail.egg-info/PKG-INFO
+autotubenail.egg-info/SOURCES.txt
+autotubenail.egg-info/dependency_links.txt
+autotubenail.egg-info/entry_points.txt
+autotubenail.egg-info/requires.txt
+autotubenail.egg-info/top_level.txt

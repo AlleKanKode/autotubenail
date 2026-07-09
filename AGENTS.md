@@ -1,15 +1,22 @@
 # AGENTS.md — autotubenail
 
 ## Status
-Pre-implementation. Only a planning document exists (`PROMPT Udvikling af modulær Thumbnail-Generator (Fase 1 Python Motor).md`). No code, config, CI, or assets committed.
+Phase 1 engine implemented. See `prompt.md` (Danish) for full requirements.
 
 ## Project
 Python CLI thumbnail generator using Pillow. Replaces getstencil.com. Phase 1 builds the engine only; a Flutter frontend comes later.
 
-## Planned CLI
+## Setup (Brug UV)
 ```bash
-python generator.py --serie <navn> --bg <sti> --titel "<tekst>" --ekstra <sti>
+uv sync
 ```
+
+## CLI
+```bash
+uv run thumbnail --serie <navn> --bg <sti> --titel "<tekst>" --ekstra <sti>
+```
+
+Alternativt: `uv run python generator.py ...`.
 
 - `--serie`: key in config.json (e.g. `tomat-source`)
 - `--bg`: path to 16:9 background image
@@ -39,7 +46,7 @@ generator.py             — OOP Pillow engine
 ```
 
 ## Source of truth
-All requirements are in the PROMPT file (Danish). Do not deviate without user confirmation.
+All requirements are in `prompt.md` (Danish). Do not deviate without user confirmation.
 
 ## Build order (per prompt §5)
 1. JSON parsing + CLI argument handling
