@@ -45,35 +45,44 @@ class ThumbnailGenerator:
 
     def _composite_overlays(self, billede, serie_config):
         for overlay in serie_config.get("overlays", []):
-            img = self._indlæs_billede(overlay["sti"])
+            if "path" in overlay:
+                img = self._indlæs_billede(overlay["path"])
+            elif "color" in overlay:
+                img = Image.new(
+                    "RGBA",
+                    (overlay["width"], overlay["height"]),
+                    tuple(overlay["color"]),
+                )
+            else:
+                continue
             billede = self._komposér(billede, img, overlay["x"], overlay["y"])
         return billede
 
     def _composite_logos(self, billede, serie_config):
-        for logo in serie_config.get("logoer", []):
-            img = self._indlæs_billede(logo["sti"])
+        for logo in serie_config.get("logos", []):
+            img = self._indlæs_billede(logo["path"])
             billede = self._komposér(billede, img, logo["x"], logo["y"])
         return billede
 
     def _composite_extra_logo(self, billede, serie_config, ekstra_sti):
-        konfig = serie_config.get("ekstra_logo")
+        konfig = serie_config.get("extra_logo")
         if not konfig:
-            raise ValueError("Serien har ingen 'ekstra_logo'-konfiguration.")
+            raise ValueError("Serien har ingen 'extra_logo'-konfiguration.")
         img = self._indlæs_billede(ekstra_sti)
-        img = img.resize((konfig["bredde"], konfig["hoejde"]), Image.LANCZOS)
+        img = img.resize((konfig["width"], konfig["height"]), Image.LANCZOS)
         return self._komposér(billede, img, konfig["x"], konfig["y"])
 
     def _render_text(self, billede, serie_config, titel):
-        ops = serie_config["tekst_opsætning"]
-        if not os.path.exists(ops["skrifttype"]):
-            raise FileNotFoundError(f"Skrifttypen findes ikke: {ops['skrifttype']}")
-        font = ImageFont.truetype(ops["skrifttype"], ops["størrelse"])
+        ops = serie_config["text_settings"]
+        if not os.path.exists(ops["font"]):
+            raise FileNotFoundError(f"Skrifttypen findes ikke: {ops['font']}")
+        font = ImageFont.truetype(ops["font"], ops["size"])
         draw = ImageDraw.Draw(billede)
         linjer = titel.split("\n")
         y = ops["y"]
         for linje in linjer:
-            draw.text((ops["x"], y), linje, fill=tuple(ops["farve"]), font=font)
-            y += ops["størrelse"] + ops["linjeafstand"]
+            draw.text((ops["x"], y), linje, fill=tuple(ops["color"]), font=font)
+            y += ops["size"] + ops["line_spacing"]
         return billede
 
     def _save_output(self, billede, bg_sti):
@@ -86,9 +95,9 @@ class ThumbnailGenerator:
     # ── Hovedmetode ──────────────────────────────────────────────────
 
     def generate(self, serie, bg_sti, titel, ekstra_sti=None):
-        if serie not in self.config["serier"]:
+        if serie not in self.config["series"]:
             raise ValueError(f"Serien '{serie}' findes ikke i config.")
-        serie_config = self.config["serier"][serie]
+        serie_config = self.config["series"][serie]
 
         billede = self._load_and_resize_bg(bg_sti)
         billede = self._composite_overlays(billede, serie_config)
@@ -119,16 +128,25 @@ def main():
         help="Titeltekst. Brug \\n for linjeskift."
     )
     parser.add_argument(
+        "--project",
+        help="Projektnavn (læser projects/<navn>/config.json)"
+    )
+    parser.add_argument(
         "--ekstra",
         help="Sti til ekstra logo (f.eks. Python-logo)"
     )
     args = parser.parse_args()
 
     try:
-        generator = ThumbnailGenerator()
+        config_sti = f"projects/{args.project}/config.json" if args.project else "config.json"
+        generator = ThumbnailGenerator(config_sti)
+        if args.project and not os.path.isabs(args.bg):
+            bg_sti = os.path.join("projects", args.project, args.bg)
+        else:
+            bg_sti = args.bg
         output = generator.generate(
             serie=args.serie,
-            bg_sti=args.bg,
+            bg_sti=bg_sti,
             titel=args.titel,
             ekstra_sti=args.ekstra,
         )

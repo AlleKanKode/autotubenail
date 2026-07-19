@@ -18,6 +18,7 @@ uv run thumbnail --serie <navn> --bg <sti> --titel "<tekst>" --ekstra <sti>
 
 Alternativt: `uv run python generator.py ...`.
 
+- `--project`: project name; reads `projects/<name>/config.json` instead of root `config.json`
 - `--serie`: key in config.json (e.g. `tomat-source`)
 - `--bg`: path to 16:9 background image
 - `--titel`: title text; `\n` for line breaks
@@ -27,9 +28,10 @@ Alternativt: `uv run python generator.py ...`.
 ```
 skabeloner/fælles/       — shared fonts + logos
 skabeloner/tomat-source/ — series-specific assets
-baggrunde/               — 16:9 background images
+backgrounds/             — 16:9 background images (global template)
 output/                  — generated thumbnails
-config.json              — layout definitions per series
+config.json              — template/reference (copy to projects/)
+projects/<name>/         — per-project config.json
 generator.py             — OOP Pillow engine
 ```
 
@@ -42,7 +44,7 @@ generator.py             — OOP Pillow engine
 
 ## Config structure
 ```json
-{ "serier": { "<navn>": { "overlays": [...], "logoer": [...], "tekst_opsætning": {...} } } }
+{ "series": { "<name>": { "overlays": [...], "logos": [...], "text_settings": {...} } } }
 ```
 
 ## Source of truth

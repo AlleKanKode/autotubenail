@@ -1,27 +1,28 @@
 {
-  "serier": {
+  "series": {
     "tomat-source": {
       "overlays": [
-        { "sti": "skabeloner/tomat-source/venstre_bar.png", "x": 0, "y": 0 },
-        { "sti": "skabeloner/tomat-source/hoejre_bar.png", "x": 1200, "y": 0 }
+        { "path": "skabeloner/tomat-source/venstre_bar.png", "x": 0, "y": 0 },
+        { "path": "skabeloner/tomat-source/hoejre_bar.png", "x": 1200, "y": 0 },
+        { "color": [20, 20, 40, 200], "x": 0, "y": 700, "width": 1920, "height": 380 }
       ],
-      "logoer": [
-        { "sti": "skabeloner/fælles/alle-kan-kode-logo.png", "x": 50, "y": 50 },
-        { "sti": "skabeloner/tomat-source/tomat_logo.png", "x": 1600, "y": 50 }
+      "logos": [
+        { "path": "skabeloner/fælles/alle-kan-kode-logo.png", "x": 50, "y": 50 },
+        { "path": "skabeloner/tomat-source/tomat_logo.png", "x": 1600, "y": 50 }
       ],
-      "ekstra_logo": {
+      "extra_logo": {
         "x": 1750,
         "y": 50,
-        "bredde": 100,
-        "hoejde": 100
+        "width": 100,
+        "height": 100
       },
-      "tekst_opsætning": {
-        "skrifttype": "skabeloner/fælles/Ubuntu-Bold.ttf",
-        "størrelse": 65,
-        "farve": [255, 255, 255],
+      "text_settings": {
+        "font": "skabeloner/fælles/Ubuntu-Bold.ttf",
+        "size": 65,
+        "color": [255, 255, 255],
         "x": 1300,
         "y": 400,
-        "linjeafstand": 15
+        "line_spacing": 15
       }
     }
   }
