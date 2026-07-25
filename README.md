@@ -59,38 +59,53 @@ uv run thumbnail --project min-serie --series min-serie --bg ...
 
 `config.json` i roden er en template/reference. Kopier den til `projects/<navn>/config.json` og rediger.
 
-Serier defineres således:
+Hver serie har et `layers`-array med en træstruktur af lag:
 
 ```json
 {
   "series": {
     "<name>": {
-      "overlays": [
-        { "path": "...",  "x": 0, "y": 0 },
-        { "color": [20, 20, 40, 200], "x": 0, "y": 700, "width": 1920, "height": 380 }
-      ],
-      "logos": [
-        { "path": "...", "x": 50, "y": 50 }
-      ],
-      "extra_logo": {
-        "x": 1750, "y": 50,
-        "width": 100, "height": 100
-      },
-      "text_settings": {
-        "font": "...",
-        "size": 65,
-        "color": [255, 255, 255],
-        "x": 1300, "y": 400,
-        "line_spacing": 15
-      }
+      "layers": [
+        { "type": "rect", "color": [0, 0, 0, 199], "x": 0, "y": 0, "width": 400, "height": 1080 },
+        { "type": "image", "path": "...", "x": 1200, "y": 0 },
+        {
+          "type": "group", "x": 0, "y": 0,
+          "children": [
+            { "type": "image", "path": "...", "x": 50, "y": 50 }
+          ]
+        },
+        { "type": "image", "dynamic": true, "x": 1750, "y": 50, "width": 100, "height": 100 },
+        { "type": "text", "value": "", "font": "...", "size": 65, "color": [255,255,255], "align": "left", "x": 1300, "y": 400, "line_spacing": 15 }
+      ]
     }
   }
 }
 ```
 
-Overlay kan være en fil (`path`) eller en solid farve (`color` med RGBA + `width`/`height`).
+### Lagtyper
 
-Lag-rækkefølge: baggrund → overlays → logos → extra_logo → tekst.
+| Type | Beskrivelse | Specifikke felter |
+|------|-------------|-------------------|
+| `group` | Container med børn. `x`,`y` forskydes relativt til forælder | `children` |
+| `rect` | Solid RGBA-rektangel | `color`, `width`, `height` |
+| `image` | Billedfil (PNG). `dynamic: true` = path fra `--extra` CLI | `path`, `dynamic`, `width`, `height` |
+| `text` | Tekst. `value` overstyres af `--title` CLI | `value`, `font`, `size`, `color`, `align`, `line_spacing` |
+
+### Fælles felter
+
+| Felt | Default | Beskrivelse |
+|------|---------|-------------|
+| `x`,`y` | `0` | Position relativ til forælder |
+| `z_index` | `0` | Overrider depth-first orden (højere = øverst) |
+| `visible` | `true` | `false` = springes over |
+
+### Positionering
+
+Alle `x`,`y` er relative til forælderens position. Root-lag har forælder = (0, 0).
+
+### Renderingsrækkefølge
+
+Første lag i `layers`-arrayet = nederst. `z_index` kan overstyre.
 
 ## Output
 

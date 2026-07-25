@@ -36,15 +36,16 @@ generator.py             — OOP Pillow engine
 ```
 
 ## Key requirements (from prompt)
-- Layer compositing: background → overlays → logos → text → optional extra logo
+- Layer compositing via recursive tree renderer: `rect`, `image`, `group`, `text` nodes
+- Text: config-driven font/size/color/position/alignment/line spacing; `\n` line breaks; `--title` overrides `value`
+- Dynamic images: `--extra` CLI injects path into `"dynamic": true` nodes
 - Force background to 1920×1080; support alpha-composite for PNGs
-- Text: config-driven font/size/color/position/line spacing; `\n` line breaks
 - Output: RGBA→RGB, JPEG quality=85 (~200 KB target), filename `{input}-c.jpg`
 - Code must be clean, OOP, well-documented (stream audience)
 
 ## Config structure
 ```json
-{ "series": { "<name>": { "overlays": [...], "logos": [...], "text_settings": {...} } } }
+{ "series": { "<name>": { "layers": [{ "type": "...", ... }] } } }
 ```
 
 ## Source of truth

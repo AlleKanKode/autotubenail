@@ -32,58 +32,66 @@ class ThumbnailGenerator:
 
     @staticmethod
     def _composite(background, overlay, x, y):
-        """Place a transparent PNG onto the background at (x, y)."""
         layer = Image.new("RGBA", background.size, (0, 0, 0, 0))
         layer.paste(overlay, (x, y))
         return Image.alpha_composite(background, layer)
 
-    # ── Layer operations ─────────────────────────────────────────────
+    # ── Tree renderer ────────────────────────────────────────────────
+
+    def _render_layer(self, image, node, abs_x, abs_y, title, extra_path):
+        if node.get("visible") is False:
+            return image
+
+        node_x = abs_x + node.get("x", 0)
+        node_y = abs_y + node.get("y", 0)
+
+        if node["type"] == "group":
+            children = sorted(node.get("children", []), key=lambda c: c.get("z_index", 0))
+            for child in children:
+                image = self._render_layer(image, child, node_x, node_y, title, extra_path)
+            return image
+
+        if node["type"] == "rect":
+            img = Image.new("RGBA", (node["width"], node["height"]), tuple(node["color"]))
+            return self._composite(image, img, node_x, node_y)
+
+        if node["type"] == "image":
+            path = extra_path if node.get("dynamic") else node.get("path")
+            if not path:
+                return image
+            img = self._load_image(path)
+            if "width" in node or "height" in node:
+                w = node.get("width", img.width)
+                h = node.get("height", img.height)
+                img = img.resize((w, h), Image.LANCZOS)
+            return self._composite(image, img, node_x, node_y)
+
+        if node["type"] == "text":
+            content = title if title else node.get("value", "")
+            if not os.path.exists(node["font"]):
+                raise FileNotFoundError(f"Font not found: {node['font']}")
+            font = ImageFont.truetype(node["font"], node["size"])
+            draw = ImageDraw.Draw(image)
+            lines = content.split("\n")
+            align = node.get("align", "left")
+            y = node_y
+            for line in lines:
+                line_width = draw.textlength(line, font=font)
+                if align == "center":
+                    x = node_x - line_width // 2
+                elif align == "right":
+                    x = node_x - line_width
+                else:
+                    x = node_x
+                draw.text((x, y), line, fill=tuple(node["color"]), font=font)
+                y += node["size"] + node.get("line_spacing", 0)
+            return image
+
+        return image
 
     def _load_and_resize_bg(self, path):
         img = self._load_image(path)
         return img.resize((1920, 1080), Image.LANCZOS)
-
-    def _composite_overlays(self, image, series_config):
-        for overlay in series_config.get("overlays", []):
-            if "path" in overlay:
-                img = self._load_image(overlay["path"])
-            elif "color" in overlay:
-                img = Image.new(
-                    "RGBA",
-                    (overlay["width"], overlay["height"]),
-                    tuple(overlay["color"]),
-                )
-            else:
-                continue
-            image = self._composite(image, img, overlay["x"], overlay["y"])
-        return image
-
-    def _composite_logos(self, image, series_config):
-        for logo in series_config.get("logos", []):
-            img = self._load_image(logo["path"])
-            image = self._composite(image, img, logo["x"], logo["y"])
-        return image
-
-    def _composite_extra_logo(self, image, series_config, extra_path):
-        config = series_config.get("extra_logo")
-        if not config:
-            raise ValueError("Series has no 'extra_logo' configuration.")
-        img = self._load_image(extra_path)
-        img = img.resize((config["width"], config["height"]), Image.LANCZOS)
-        return self._composite(image, img, config["x"], config["y"])
-
-    def _render_text(self, image, series_config, title):
-        settings = series_config["text_settings"]
-        if not os.path.exists(settings["font"]):
-            raise FileNotFoundError(f"Font not found: {settings['font']}")
-        font = ImageFont.truetype(settings["font"], settings["size"])
-        draw = ImageDraw.Draw(image)
-        lines = title.split("\n")
-        y = settings["y"]
-        for line in lines:
-            draw.text((settings["x"], y), line, fill=tuple(settings["color"]), font=font)
-            y += settings["size"] + settings["line_spacing"]
-        return image
 
     def _save_output(self, image, bg_path):
         os.makedirs("output", exist_ok=True)
@@ -100,11 +108,9 @@ class ThumbnailGenerator:
         series_config = self.config["series"][series]
 
         image = self._load_and_resize_bg(bg_path)
-        image = self._composite_overlays(image, series_config)
-        image = self._composite_logos(image, series_config)
-        if extra_path:
-            image = self._composite_extra_logo(image, series_config, extra_path)
-        image = self._render_text(image, series_config, title)
+        layers = sorted(series_config.get("layers", []), key=lambda l: l.get("z_index", 0))
+        for layer in layers:
+            image = self._render_layer(image, layer, 0, 0, title, extra_path)
         output_path = self._save_output(image, bg_path)
         return output_path
 
