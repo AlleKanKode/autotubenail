@@ -13,16 +13,16 @@ uv sync
 
 ## CLI
 ```bash
-uv run thumbnail --serie <navn> --bg <sti> --titel "<tekst>" --ekstra <sti>
+uv run thumbnail --series <navn> --bg <sti> --title "<tekst>" --extra <sti>
 ```
 
 Alternativt: `uv run python generator.py ...`.
 
 - `--project`: project name; reads `projects/<name>/config.json` instead of root `config.json`
-- `--serie`: key in config.json (e.g. `tomat-source`)
+- `--series`: key in config.json (e.g. `tomat-source`)
 - `--bg`: path to 16:9 background image
-- `--titel`: title text; `\n` for line breaks
-- `--ekstra`: optional extra logo (e.g. Python logo)
+- `--title`: title text; `\n` for line breaks
+- `--extra`: optional extra logo (e.g. Python logo)
 
 ## Planned directory structure
 ```

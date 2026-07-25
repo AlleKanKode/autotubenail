@@ -25,16 +25,16 @@ uv sync
 ## Brug
 
 ```bash
-uv run thumbnail --serie <navn> --bg <sti> --titel "<tekst>" [--ekstra <sti>]
+uv run thumbnail --series <navn> --bg <sti> --title "<tekst>" [--extra <sti>]
 ```
 
 | Flag | Påkrævet | Beskrivelse |
 |------|----------|-------------|
 | `--project` | Nej | Projektnavn — læser `projects/<navn>/config.json` |
-| `--serie` | Ja | Nøgle i config, f.eks. `tomat-source` |
+| `--series` | Ja | Nøgle i config, f.eks. `tomat-source` |
 | `--bg` | Ja | Sti til 16:9 baggrundsbillede |
-| `--titel` | Ja | Titeltekst. Brug `\n` for linjeskift |
-| `--ekstra` | Nej | Sti til ekstra logo (skaleres efter config) |
+| `--title` | Ja | Titeltekst. Brug `\n` for linjeskift |
+| `--extra` | Nej | Sti til ekstra logo (skaleres efter config) |
 
 Uden `--project` bruges rodens `config.json` (template). Med `--project` bruges `projects/<navn>/config.json`.
 
@@ -42,17 +42,17 @@ Uden `--project` bruges rodens `config.json` (template). Med `--project` bruges 
 
 ```bash
 # Global template
-uv run thumbnail --serie tomat-source --bg backgrounds/intro.png --titel "Hej verden"
+uv run thumbnail --series tomat-source --bg backgrounds/intro.png --title "Hej verden"
 
 # Med ekstra logo
-uv run thumbnail --serie tomat-source --bg backgrounds/intro.png \
-  --titel "Re\nfactor\nkode\npiv\nbilligt" \
-  --ekstra skabeloner/python.png
+uv run thumbnail --series tomat-source --bg backgrounds/intro.png \
+  --title "Re\nfactor\nkode\npiv\nbilligt" \
+  --extra skabeloner/python.png
 
 # Projekt-specifik config
 cp config.json projects/min-serie/
 # rediger projects/min-serie/config.json
-uv run thumbnail --project min-serie --serie min-serie --bg ...
+uv run thumbnail --project min-serie --series min-serie --bg ...
 ```
 
 ## Config
@@ -103,24 +103,24 @@ Lag-rækkefølge: baggrund → overlays → logos → extra_logo → tekst.
 
 ```bash
 # Smoke test (global template)
-uv run thumbnail --serie tomat-source --bg backgrounds/test.png --titel "Hej verden"
+uv run thumbnail --series tomat-source --bg backgrounds/test.png --title "Hej verden"
 
 # Linjeskift
-uv run thumbnail --serie tomat-source --bg backgrounds/test.png \
-  --titel "Re\nfactor\nkode"
+uv run thumbnail --series tomat-source --bg backgrounds/test.png \
+  --title "Re\nfactor\nkode"
 
 # Med ekstra logo
-uv run thumbnail --serie tomat-source --bg backgrounds/test.png \
-  --titel "Test" --ekstra skabeloner/python.png
+uv run thumbnail --series tomat-source --bg backgrounds/test.png \
+  --title "Test" --extra skabeloner/python.png
 
 # Projekt-specifik config
 mkdir -p projects/my-test && cp config.json projects/my-test/
-uv run thumbnail --project my-test --serie tomat-source \
-  --bg backgrounds/test.png --titel "Projekt test"
+uv run thumbnail --project my-test --series tomat-source \
+  --bg backgrounds/test.png --title "Projekt test"
 
 # Fejlhåndtering — manglende serie
-uv run thumbnail --serie findes-ikke --bg backgrounds/test.png --titel "test"
+uv run thumbnail --series findes-ikke --bg backgrounds/test.png --title "test"
 
 # Fejlhåndtering — manglende fil
-uv run thumbnail --serie tomat-source --bg findes-ikke.png --titel "test"
+uv run thumbnail --series tomat-source --bg findes-ikke.png --title "test"
 ```
