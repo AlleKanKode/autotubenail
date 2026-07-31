@@ -61,8 +61,14 @@ class ThumbnailGenerator:
                 return image
             img = self._load_image(path)
             if "width" in node or "height" in node:
-                w = node.get("width", img.width)
-                h = node.get("height", img.height)
+                if "width" in node and "height" in node:
+                    w, h = node["width"], node["height"]
+                elif "width" in node:
+                    ratio = node["width"] / img.width
+                    w, h = node["width"], round(img.height * ratio)
+                else:
+                    ratio = node["height"] / img.height
+                    w, h = round(img.width * ratio), node["height"]
                 img = img.resize((w, h), Image.LANCZOS)
             return self._composite(image, img, node_x, node_y)
 
