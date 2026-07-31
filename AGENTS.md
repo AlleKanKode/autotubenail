@@ -6,6 +6,11 @@ Phase 1 engine implemented. See `prompt.md` (Danish) for full requirements.
 ## Project
 Python CLI thumbnail generator using Pillow. Replaces getstencil.com. Phase 1 builds the engine only; a Flutter frontend comes later.
 
+## Vigtigt (Git)
+- MÅ ALDRIG committe, amend, push, merge, rebase eller oprette branches/PRs uden eksplicit bruger-godkendelse
+- Efterlad ændringer som unstaged/untracked, så brugeren selv kan gennemgå dem
+- Brug kun `git status` / `git diff` / `git log` til inspektion
+
 ## Setup (Brug UV)
 ```bash
 uv sync
