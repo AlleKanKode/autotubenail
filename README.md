@@ -88,7 +88,7 @@ Hver serie har et `layers`-array med en træstruktur af lag:
 |------|-------------|-------------------|
 | `group` | Container med børn. `x`,`y` forskydes relativt til forælder | `children` |
 | `rect` | Solid RGBA-rektangel | `color`, `width`, `height` |
-| `image` | Billedfil (PNG). `dynamic: true` = path fra `--extra` CLI | `path`, `dynamic`, `width`, `height` |
+| `image` | Billedfil (PNG). `dynamic: true` = path fra `--extra` CLI. `width`/`height` valgfri skalering — angiv begge for præcis størrelse, eller én for proportionel skalering | `path`, `dynamic`, `width`, `height` |
 | `text` | Tekst. `value` overstyres af `--title` CLI | `value`, `font`, `size`, `color`, `align`, `line_spacing` |
 
 ### Fælles felter
