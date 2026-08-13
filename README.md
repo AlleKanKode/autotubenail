@@ -89,7 +89,7 @@ Hver serie har et `layers`-array med en træstruktur af lag:
 | `group` | Container med børn. `x`,`y` forskydes relativt til forælder | `children` |
 | `rect` | Solid RGBA-rektangel | `color`, `width`, `height` |
 | `image` | Billedfil (PNG). `dynamic: true` = path fra `--extra` CLI. `width`/`height` valgfri skalering — angiv begge for præcis størrelse, eller én for proportionel skalering | `path`, `dynamic`, `width`, `height` |
-| `text` | Tekst. `value` overstyres af `--title` CLI | `value`, `font`, `size`, `color`, `align`, `line_spacing` |
+| `text` | Tekst. Wrapper altid til sin container; auto-shrinker font ved overflow. `value` overstyres af `--title` CLI | `value`, `font`, `size`, `color`, `align`, `line_spacing` |
 
 ### Fælles felter
 
@@ -102,6 +102,21 @@ Hver serie har et `layers`-array med en træstruktur af lag:
 ### Positionering
 
 Alle `x`,`y` er relative til forælderens position. Root-lag har forælder = (0, 0).
+
+### Tekst og wrapping
+
+Tekst wrapper altid og begrænses af det objekt (gruppe) den indgår i:
+
+- **I en gruppe** udledes gruppens areal (bredde × højde) automatisk fra dens
+  ikke-tekst børn (`rect`, `image`, næstede grupper). Teksten må aldrig
+  overskride det areal: lange ord linjebrydes, og er teksten højere end
+  gruppen, formindskes fonten iterativt til den passer (minimum `max(10, size/4)`).
+- **Uden for en gruppe** er begrænsningen baggrundsbilledet (1920×1080), målt
+  fra tekstens `x`/`y` til billedets kant.
+- `\n` i titlen laver stadig manuelle (tvungne) linjeskift oven på wrappingen.
+- `align` (`left`/`center`/`right`) regnes relativt til containeren.
+- Overskrider teksten alligevel arealet ved minimums-fonten, tegnes den og en
+  advarsel printes til stderr.
 
 ### Renderingsrækkefølge
 

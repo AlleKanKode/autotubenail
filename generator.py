@@ -36,19 +36,70 @@ class ThumbnailGenerator:
         layer.paste(overlay, (x, y))
         return Image.alpha_composite(background, layer)
 
+    def _node_bounds(self, node, title, extra_path):
+        """Return (width, height) of a node, or None if it has no measurable size.
+
+        Text nodes have no size of their own — they wrap to the box of their
+        container — so they always return None.
+        """
+        node_type = node["type"]
+        if node_type == "rect":
+            return node.get("width"), node.get("height")
+        if node_type == "image":
+            path = extra_path if node.get("dynamic") else node.get("path")
+            if not path:
+                return None
+            img = self._load_image(path)
+            if "width" in node and "height" in node:
+                return node["width"], node["height"]
+            if "width" in node:
+                ratio = node["width"] / img.width
+                return node["width"], round(img.height * ratio)
+            if "height" in node:
+                ratio = node["height"] / img.height
+                return round(img.width * ratio), node["height"]
+            return img.width, img.height
+        if node_type == "group":
+            return self._group_bounds(node, title, extra_path)
+        return None
+
+    def _group_bounds(self, node, title, extra_path):
+        """Infer a group's bounding box from its non-text children.
+
+        The size is the furthest extent reached by any child. Returns None if
+        the group has no measurable children, so the text falls back to the
+        constraint inherited from its parent (or the background).
+        """
+        extents = []
+        for child in node.get("children", []):
+            if child.get("visible") is False:
+                continue
+            bounds = self._node_bounds(child, title, extra_path)
+            if bounds is None:
+                continue
+            extents.append((child.get("x", 0) + bounds[0], child.get("y", 0) + bounds[1]))
+        if not extents:
+            return None
+        return max(e[0] for e in extents), max(e[1] for e in extents)
+
     # ── Tree renderer ────────────────────────────────────────────────
 
-    def _render_layer(self, image, node, abs_x, abs_y, title, extra_path):
+    def _render_layer(self, image, node, abs_x, abs_y, title, extra_path, constraint=None):
         if node.get("visible") is False:
             return image
+
+        if constraint is None:
+            constraint = (0, 0, image.width, image.height)
 
         node_x = abs_x + node.get("x", 0)
         node_y = abs_y + node.get("y", 0)
 
         if node["type"] == "group":
+            bounds = self._group_bounds(node, title, extra_path)
+            group_constraint = (node_x, node_y, bounds[0], bounds[1]) if bounds else constraint
             children = sorted(node.get("children", []), key=lambda c: c.get("z_index", 0))
             for child in children:
-                image = self._render_layer(image, child, node_x, node_y, title, extra_path)
+                image = self._render_layer(image, child, node_x, node_y, title, extra_path, group_constraint)
             return image
 
         if node["type"] == "rect":
@@ -73,26 +124,83 @@ class ThumbnailGenerator:
             return self._composite(image, img, node_x, node_y)
 
         if node["type"] == "text":
-            content = title if title else node.get("value", "")
-            if not os.path.exists(node["font"]):
-                raise FileNotFoundError(f"Font not found: {node['font']}")
-            font = ImageFont.truetype(node["font"], node["size"])
-            draw = ImageDraw.Draw(image)
-            lines = content.split("\n")
-            align = node.get("align", "left")
-            y = node_y
-            for line in lines:
-                line_width = draw.textlength(line, font=font)
-                if align == "center":
-                    x = node_x - line_width // 2
-                elif align == "right":
-                    x = node_x - line_width
-                else:
-                    x = node_x
-                draw.text((x, y), line, fill=tuple(node["color"]), font=font)
-                y += node["size"] + node.get("line_spacing", 0)
-            return image
+            return self._render_text(image, node, node_x, node_y, title, constraint)
 
+        return image
+
+    def _wrap_text(self, text, font, draw, max_width):
+        """Wrap text to a maximum width, honouring explicit \\n line breaks.
+
+        Words are filled greedily; a single word wider than the box is broken
+        into pieces so it never exceeds the given width.
+        """
+        lines = []
+        for paragraph in text.split("\n"):
+            current = ""
+            for word in paragraph.split(" "):
+                candidate = f"{current} {word}" if current else word
+                if draw.textlength(candidate, font=font) <= max_width:
+                    current = candidate
+                    continue
+                if current:
+                    lines.append(current)
+                while draw.textlength(word, font=font) > max_width and len(word) > 1:
+                    lo, hi = 1, len(word)
+                    while lo < hi:
+                        mid = (lo + hi + 1) // 2
+                        if draw.textlength(word[:mid], font=font) <= max_width:
+                            lo = mid
+                        else:
+                            hi = mid - 1
+                    lines.append(word[:lo])
+                    word = word[lo:]
+                current = word
+            if current:
+                lines.append(current)
+        return lines
+
+    def _render_text(self, image, node, node_x, node_y, title, constraint):
+        content = title if title else node.get("value", "")
+        if not os.path.exists(node["font"]):
+            raise FileNotFoundError(f"Font not found: {node['font']}")
+
+        c_x, c_y, c_w, c_h = constraint
+        base_size = node.get("size", 40)
+        line_spacing = node.get("line_spacing", 0)
+        align = node.get("align", "left")
+        color = tuple(node["color"])
+        max_width = c_x + c_w - node_x
+        max_height = c_y + c_h - node_y
+        min_size = max(10, base_size // 4)
+
+        draw = ImageDraw.Draw(image)
+
+        size = base_size
+        while size > min_size:
+            font = ImageFont.truetype(node["font"], size)
+            lines = self._wrap_text(content, font, draw, max_width)
+            if len(lines) * (size + line_spacing) <= max_height:
+                break
+            size -= 4
+
+        font = ImageFont.truetype(node["font"], size)
+        lines = self._wrap_text(content, font, draw, max_width)
+        total_height = len(lines) * (size + line_spacing)
+        if total_height > max_height:
+            overflow = total_height - max_height
+            print(f"Warning: text overflows its area by {overflow}px at minimum size.", file=sys.stderr)
+
+        y = node_y
+        for line in lines:
+            line_width = draw.textlength(line, font=font)
+            if align == "center":
+                x = node_x + max_width / 2 - line_width / 2
+            elif align == "right":
+                x = node_x + max_width - line_width
+            else:
+                x = node_x
+            draw.text((x, y), line, fill=color, font=font)
+            y += size + line_spacing
         return image
 
     def _load_and_resize_bg(self, path):
