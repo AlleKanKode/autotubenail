@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
-  echo "Brug: $0 <titel>" >&2
+if [ "$#" -ne 2 ]; then
+  echo "Brug: $0 <titel> <subtitel>" >&2
   exit 1
 fi
 
@@ -11,7 +11,8 @@ OUTPUT=$(uv run thumbnail \
   --project tomatsource \
   --series tomat-source \
   --bg backgrounds/ts64-orig.png \
-  --title "$1")
+  --text "main=$1" \
+  --text "subtitle=$2")
 
 echo "$OUTPUT"
 xdg-open "$(echo "$OUTPUT" | sed 's/Thumbnail saved: //')" &

@@ -36,7 +36,7 @@ class ThumbnailGenerator:
         layer.paste(overlay, (x, y))
         return Image.alpha_composite(background, layer)
 
-    def _node_bounds(self, node, title, extra_path):
+    def _node_bounds(self, node, extra_path):
         """Return (width, height) of a node, or None if it has no measurable size.
 
         Text nodes have no size of their own — they wrap to the box of their
@@ -60,10 +60,10 @@ class ThumbnailGenerator:
                 return round(img.width * ratio), node["height"]
             return img.width, img.height
         if node_type == "group":
-            return self._group_bounds(node, title, extra_path)
+            return self._group_bounds(node, extra_path)
         return None
 
-    def _group_bounds(self, node, title, extra_path):
+    def _group_bounds(self, node, extra_path):
         """Infer a group's bounding box from its non-text children.
 
         The size is the furthest extent reached by any child. Returns None if
@@ -74,7 +74,7 @@ class ThumbnailGenerator:
         for child in node.get("children", []):
             if child.get("visible") is False:
                 continue
-            bounds = self._node_bounds(child, title, extra_path)
+            bounds = self._node_bounds(child, extra_path)
             if bounds is None:
                 continue
             extents.append((child.get("x", 0) + bounds[0], child.get("y", 0) + bounds[1]))
@@ -84,7 +84,7 @@ class ThumbnailGenerator:
 
     # ── Tree renderer ────────────────────────────────────────────────
 
-    def _render_layer(self, image, node, abs_x, abs_y, title, extra_path, constraint=None):
+    def _render_layer(self, image, node, abs_x, abs_y, texts, extra_path, constraint=None):
         if node.get("visible") is False:
             return image
 
@@ -95,11 +95,11 @@ class ThumbnailGenerator:
         node_y = abs_y + node.get("y", 0)
 
         if node["type"] == "group":
-            bounds = self._group_bounds(node, title, extra_path)
+            bounds = self._group_bounds(node, extra_path)
             group_constraint = (node_x, node_y, bounds[0], bounds[1]) if bounds else constraint
             children = sorted(node.get("children", []), key=lambda c: c.get("z_index", 0))
             for child in children:
-                image = self._render_layer(image, child, node_x, node_y, title, extra_path, group_constraint)
+                image = self._render_layer(image, child, node_x, node_y, texts, extra_path, group_constraint)
             return image
 
         if node["type"] == "rect":
@@ -124,7 +124,7 @@ class ThumbnailGenerator:
             return self._composite(image, img, node_x, node_y)
 
         if node["type"] == "text":
-            return self._render_text(image, node, node_x, node_y, title, constraint)
+            return self._render_text(image, node, node_x, node_y, texts, constraint)
 
         return image
 
@@ -159,8 +159,9 @@ class ThumbnailGenerator:
                 lines.append(current)
         return lines
 
-    def _render_text(self, image, node, node_x, node_y, title, constraint):
-        content = title if title else node.get("value", "")
+    def _render_text(self, image, node, node_x, node_y, texts, constraint):
+        node_id = node.get("id", "main")
+        content = texts.get(node_id, node.get("value", ""))
         if not os.path.exists(node["font"]):
             raise FileNotFoundError(f"Font not found: {node['font']}")
 
@@ -216,15 +217,20 @@ class ThumbnailGenerator:
 
     # ── Main method ──────────────────────────────────────────────────
 
-    def generate(self, series, bg_path, title, extra_path=None):
+    def generate(self, series, bg_path, title=None, extra_path=None, texts=None):
         if series not in self.config["series"]:
             raise ValueError(f"Series '{series}' not found in config.")
         series_config = self.config["series"][series]
 
+        if texts is None:
+            texts = {}
+        if title is not None and "main" not in texts:
+            texts["main"] = title
+
         image = self._load_and_resize_bg(bg_path)
         layers = sorted(series_config.get("layers", []), key=lambda l: l.get("z_index", 0))
         for layer in layers:
-            image = self._render_layer(image, layer, 0, 0, title, extra_path)
+            image = self._render_layer(image, layer, 0, 0, texts, extra_path)
         output_path = self._save_output(image, bg_path)
         return output_path
 
@@ -244,8 +250,12 @@ def main():
         help="Path to a 16:9 background image"
     )
     parser.add_argument(
-        "--title", required=True,
-        help="Title text. Use \\n for line breaks."
+        "--title",
+        help="Title text (alias for --text main=...). Use \\n for line breaks."
+    )
+    parser.add_argument(
+        "--text", action="append", default=[],
+        help="Text for a placeholder id, as <id>=<text>. Repeatable."
     )
     parser.add_argument(
         "--project",
@@ -256,6 +266,14 @@ def main():
         help="Path to an extra logo (e.g. Python logo)"
     )
     args = parser.parse_args()
+
+    texts = {}
+    for item in args.text:
+        if "=" not in item:
+            print(f"Error: --text expects <id>=<text>, got '{item}'", file=sys.stderr)
+            sys.exit(1)
+        node_id, value = item.split("=", 1)
+        texts[node_id] = value
 
     try:
         config_path = f"projects/{args.project}/config.json" if args.project else "config.json"
@@ -269,6 +287,7 @@ def main():
             bg_path=bg_path,
             title=args.title,
             extra_path=args.extra,
+            texts=texts,
         )
         print(f"Thumbnail saved: {output}")
     except (FileNotFoundError, ValueError, KeyError) as e:
