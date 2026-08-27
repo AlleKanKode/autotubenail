@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 OUTPUT=$(uv run thumbnail \
   --project tomatsource \
   --series tomat-source \
-  --bg backgrounds/ts64-orig.png \
+  --bg backgrounds/ts70-trae-raket.jpg \
   --text "main=$1" \
   --text "subtitle=$2")
 

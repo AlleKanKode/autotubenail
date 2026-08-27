@@ -39,9 +39,11 @@ class ThumbnailGenerator:
     def _node_bounds(self, node, extra_path):
         """Return (width, height) of a node, or None if it has no measurable size.
 
-        Text nodes have no size of their own — they wrap to the box of their
-        container — so they always return None.
+        A node with explicit width/height is always measurable. Text without
+        explicit size wraps to the box of its container, so it returns None.
         """
+        if "width" in node and "height" in node:
+            return node["width"], node["height"]
         node_type = node["type"]
         if node_type == "rect":
             return node.get("width"), node.get("height")
@@ -50,8 +52,6 @@ class ThumbnailGenerator:
             if not path:
                 return None
             img = self._load_image(path)
-            if "width" in node and "height" in node:
-                return node["width"], node["height"]
             if "width" in node:
                 ratio = node["width"] / img.width
                 return node["width"], round(img.height * ratio)
@@ -64,12 +64,15 @@ class ThumbnailGenerator:
         return None
 
     def _group_bounds(self, node, extra_path):
-        """Infer a group's bounding box from its non-text children.
+        """Return a group's bounding box.
 
-        The size is the furthest extent reached by any child. Returns None if
-        the group has no measurable children, so the text falls back to the
-        constraint inherited from its parent (or the background).
+        An explicit width/height on the group wins. Otherwise the size is
+        inferred from the furthest extent reached by any measurable child.
+        Returns None if the group has no measurable children, so the text
+        falls back to the constraint inherited from its parent.
         """
+        if "width" in node and "height" in node:
+            return node["width"], node["height"]
         extents = []
         for child in node.get("children", []):
             if child.get("visible") is False:
@@ -170,8 +173,8 @@ class ThumbnailGenerator:
         line_spacing = node.get("line_spacing", 0)
         align = node.get("align", "left")
         color = tuple(node["color"])
-        max_width = c_x + c_w - node_x
-        max_height = c_y + c_h - node_y
+        max_width = node.get("width", c_x + c_w - node_x)
+        max_height = node.get("height", c_y + c_h - node_y)
         min_size = max(10, base_size // 4)
 
         draw = ImageDraw.Draw(image)

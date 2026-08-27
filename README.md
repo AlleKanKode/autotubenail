@@ -25,7 +25,7 @@ uv sync
 ## Brug
 
 ```bash
-uv run thumbnail --series <navn> --bg <sti> --title "<tekst>" [--extra <sti>]
+uv run thumbnail --series <navn> --bg <sti> [--title <tekst>] [--text <id>=<tekst> ...] [--extra <sti>]
 ```
 
 | Flag | Påkrævet | Beskrivelse |
@@ -33,7 +33,8 @@ uv run thumbnail --series <navn> --bg <sti> --title "<tekst>" [--extra <sti>]
 | `--project` | Nej | Projektnavn — læser `projects/<navn>/config.json` |
 | `--series` | Ja | Nøgle i config, f.eks. `tomat-source` |
 | `--bg` | Ja | Sti til 16:9 baggrundsbillede |
-| `--title` | Ja | Titeltekst. Brug `\n` for linjeskift |
+| `--title` | Nej | Titeltekst (alias for `--text main=...`). Brug `\n` for linjeskift |
+| `--text` | Nej | Tekst til en pladsholder-id: `--text main="..." --text subtitle="..."`. Repeatable. `--text` vinder over `--title` for samme id |
 | `--extra` | Nej | Sti til ekstra logo (skaleres efter config) |
 
 Uden `--project` bruges rodens `config.json` (template). Med `--project` bruges `projects/<navn>/config.json`.
@@ -89,13 +90,14 @@ Hver serie har et `layers`-array med en træstruktur af lag:
 | `group` | Container med børn. `x`,`y` forskydes relativt til forælder | `children` |
 | `rect` | Solid RGBA-rektangel | `color`, `width`, `height` |
 | `image` | Billedfil (PNG). `dynamic: true` = path fra `--extra` CLI. `width`/`height` valgfri skalering — angiv begge for præcis størrelse, eller én for proportionel skalering | `path`, `dynamic`, `width`, `height` |
-| `text` | Tekst. Wrapper altid til sin container; auto-shrinker font ved overflow. `value` overstyres af `--title` CLI | `value`, `font`, `size`, `color`, `align`, `line_spacing` |
+| `text` | Tekst. Wrapper altid; auto-shrinker font ved overflow. `value` overstyres af `--text <id>=<tekst>` CLI (default id `main`) | `id`, `value`, `font`, `size`, `color`, `align`, `line_spacing` |
 
 ### Fælles felter
 
 | Felt | Default | Beskrivelse |
 |------|---------|-------------|
 | `x`,`y` | `0` | Position relativ til forælder |
+| `width`,`height` | `-` | Valgfri fast afgrænsning. Gælder alle typer: `rect`/`image` sætter størrelse, `group` overskriver sin infererede boks, `text` definerer sit eget wrap-område. Angives de ikke, afgrænses objektet af sin container |
 | `z_index` | `0` | Overrider depth-first orden (højere = øverst) |
 | `visible` | `true` | `false` = springes over |
 
@@ -105,16 +107,19 @@ Alle `x`,`y` er relative til forælderens position. Root-lag har forælder = (0,
 
 ### Tekst og wrapping
 
-Tekst wrapper altid og begrænses af det objekt (gruppe) den indgår i:
+Tekst wrapper altid og begrænses af sin container:
 
-- **I en gruppe** udledes gruppens areal (bredde × højde) automatisk fra dens
-  ikke-tekst børn (`rect`, `image`, næstede grupper). Teksten må aldrig
+- **Med egen `width`/`height`** definerer teksten sit eget wrap-område. Det
+  bruges fx til at holde flere tekstblokke (fx titel og subtitel) adskilt,
+  så de aldrig overlapper hinanden.
+- **I en gruppe uden egen `width`/`height`** udledes gruppens areal automatisk
+  fra dens målbare børn (`rect`, `image`, næstede grupper). Teksten må aldrig
   overskride det areal: lange ord linjebrydes, og er teksten højere end
-  gruppen, formindskes fonten iterativt til den passer (minimum `max(10, size/4)`).
+  området, formindskes fonten iterativt til den passer (minimum `max(10, size/4)`).
 - **Uden for en gruppe** er begrænsningen baggrundsbilledet (1920×1080), målt
   fra tekstens `x`/`y` til billedets kant.
-- `\n` i titlen laver stadig manuelle (tvungne) linjeskift oven på wrappingen.
-- `align` (`left`/`center`/`right`) regnes relativt til containeren.
+- `\n` i teksten laver stadig manuelle (tvungne) linjeskift oven på wrappingen.
+- `align` (`left`/`center`/`right`) regnes relativt til wrap-området.
 - Overskrider teksten alligevel arealet ved minimums-fonten, tegnes den og en
   advarsel printes til stderr.
 
