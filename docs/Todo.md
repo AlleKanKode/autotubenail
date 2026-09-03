@@ -1,15 +1,12 @@
 # Todo
 
-[_] - Basis objekt til x,y position + bredde, højde
+[x] - Basis objekt til x,y position + bredde, højde (Node-klassen i `nodes.py`)
+[x] - Classes for de enkelte objekter så vi kan tilføje egenskaber fremover (RectNode, ImageNode, TextNode, GroupNode, TechNode)
+[x] - Opdater gitignore til at ignorerer __pycache__ (allerede på plads — verificeret)
 
-- Classes for de enkelte objekter så vi kan tilføje egenskaber fremover.
-- Opdater gitignore til at ignorerer __pycache__
+## Fundet i test
 
-
-
-## Skrivebordstest fra tomatsource live 67
-
-- Tekst skal kunne alignes - left, right, center, distributed.
-- Billeder til et projekt skal ligge i projekt folderen og ikke i skabelonsfolderen.
-- Vi skal kunne håndterer SVG filer også.
-- Vi skal angive teknologier der automatisk sættes på med logo eller andet, dvs vi har også brug for at angive id på grafik eller andre objekter som vi giver som parameter til renderingen. 
+[x] - Tekst billeder skal kunne alignes - left, right, center og distributed (`align: "distributed"`)
+[x] - Baggrundsbilleder skal ligge i projektfolderen og ikke tages fra skabelonsfolderen (`background`-felt i series-config, stier relative til projektfolderen)
+[x] - Vi skal kunne håndterer SVG filer også (cairosvg i `assets.py`)
+[x] - Teknologi-ikoner med pladsholder-id'er og lister (`tech`-node + `--tech <id>=<navn1>,<navn2>` CLI)

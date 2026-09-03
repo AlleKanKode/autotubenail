@@ -63,3 +63,60 @@ Planlæg  følgende tre ting:
 1. **Ny `config.json`:** En fuldt refaktoreret version af den oprindelige konfiguration, oversat til den nye træstruktur.
 2. **Dokumentation / Schema-forklaring:** En kort oversigt over felterne i det nye format (f.eks. hvilke egenskaber en `text`-node vs. en `image`-node har).
 3. **Pseudo-kode / Logik:** En beskrivelse af (eller pseudo-kode til), hvordan render-motoren skal traversere træet og beregne de endelige koordinater/renderinger.
+
+---
+
+## 4. Tilføjelser efter første implementering
+
+### `tech`-node (teknologi-ikoner)
+
+En `tech`-node er en pladsholder for en vandret række af ikoner:
+
+```json
+{ "type": "tech", "id": "tech", "x": 60, "y": 930, "height": 70, "spacing": 10 }
+```
+
+- `id` matcher `--tech <id>=<navn1>,<navn2>` CLI (default `tech`).
+- Uden CLI bruges node'ens `icons`-felt (`["python", "javascript"]`) hvis sat.
+- Et navn oversættes til en ikonfil via seriens `tech`-mapping:
+  `"tech": { "python": "skabeloner/.../python.svg" }`.
+  Findes navnet ikke i mappingen, ledes der i
+  `skabeloner/fælles/teknologier/<navn>.svg|.png`.
+- Ikonerne skaleres til `height` og placeres vandret med `spacing` (default 10).
+- Teknologi-ikoner er typisk SVG (se under Billedformater).
+
+### `align: "distributed"`
+
+`text`-noder understøtter nu fire `align`-værdier:
+`left`, `center`, `right` og `distributed`.
+
+`distributed` er fuld-justering: ordene i en linje spredes ud, så linjen fylder
+hele wrap-bredden (`width` eller container-afgrænsningen). Den sidste linje i
+et afsnit (og enkeltords-linjer) venstrestilles altid.
+
+### `background` i series-config
+
+En serie kan erklære en baggrund:
+
+```json
+{ "series": { "tomat-source": { "background": "backgrounds/intro.png", ... } } }
+```
+
+- Stien er relativ: med `--project <navn>` løses den mod `projects/<navn>/`,
+  ellers mod roden.
+- `--bg` CLI overstyrer altid `background`; angives ingen af dem, fejler kørslen.
+- Kravet er at baggrundsbilleder bor i projektfolderen, ikke i skabelonsfolderen.
+
+### Billedformater
+
+`image`-noder og baggrunde kan være PNG, JPEG eller SVG. SVG rasteriseres via
+`cairosvg` i `assets.load_image()` og returneres som RGBA, præcis som raster-
+billeder. Dermed virker al skalerings-/composite-logik uændret.
+
+### Modul-arkitektur (implementeret)
+
+| Fil | Indhold |
+|-----|---------|
+| `nodes.py` | `Node` (basis: `x`, `y`, `width`, `height`, `z_index`, `visible`) + `RectNode`, `ImageNode`, `TextNode`, `GroupNode`, `TechNode`. Factory: `Node.from_data()`. Hver node har `bounds(ctx)` og `render(canvas, abs_x, abs_y, ctx, constraint)`. |
+| `assets.py` | `load_image()` (inkl. SVG), `resolve_tech_icon()`. |
+| `generator.py` | `ThumbnailGenerator`-facade + CLI. |

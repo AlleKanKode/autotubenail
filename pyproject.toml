@@ -3,13 +3,16 @@ name = "autotubenail"
 version = "0.1.0"
 description = "YouTube livestream thumbnail generator (Pillow CLI)"
 requires-python = ">=3.10"
-dependencies = ["Pillow"]
+dependencies = [
+    "cairosvg>=2.9.0",
+    "Pillow",
+]
 
 [project.scripts]
 thumbnail = "generator:main"
 
 [tool.setuptools]
-py-modules = ["generator"]
+py-modules = ["generator", "nodes", "assets"]
 
 [tool.uv]
 package = true
