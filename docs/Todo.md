@@ -10,3 +10,9 @@
 [x] - Baggrundsbilleder skal ligge i projektfolderen og ikke tages fra skabelonsfolderen (`background`-felt i series-config, stier relative til projektfolderen)
 [x] - Vi skal kunne håndterer SVG filer også (cairosvg i `assets.py`)
 [x] - Teknologi-ikoner med pladsholder-id'er og lister (`tech`-node + `--tech <id>=<navn1>,<navn2>` CLI)
+
+[ ] - Teste tech ikoner. 
+
+- [ ] Rette todo til korrekt markdown
+- [ ] Dokumenteret koden
+- [ ] 

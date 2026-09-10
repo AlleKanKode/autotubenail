@@ -142,8 +142,24 @@ uv run thumbnail --project tomatsource --series tomat-source \
 
 ## 4. SVG-understøttelse
 
-`assets.load_image()` rasteriserer `.svg` via cairosvg. Der findes en testfil:
-`skabeloner/tomat-source/python-200-200.svg`.
+Den hurtigste måde at teste SVG er at indsætte python-ikonet i thumbnailet.
+`projects/tomatsource/config.json` mapper `"python"` →
+`skabeloner/tomat-source/python-200-200.svg` (en SVG-fil), og der ligger en
+`tech`-node klar nederst i venstre panel. Én kommando tester dermed både
+tech-ikoner og SVG-rasterisering:
+
+```bash
+uv run thumbnail --project tomatsource --series tomat-source \
+  --text "main=Python ikon" --text "subtitle=SVG test" \
+  --tech tech=python
+```
+
+Forventet: `output/ts71-metal-raket-c.jpg` (config'ens `background` bruges
+automatisk). Åbn filen og tjek at python-logoet (blå/gul) står nederst i det
+sorte venstre panel (~x 20–90, y 930–1000).
+
+Check direkte at cairosvg rasteriserer SVG'en (mappingen i linje 5 i config'en
+peger på `.svg`):
 
 ```bash
 uv run python -c "
@@ -153,8 +169,18 @@ print(img.size, img.mode)   # (200, 200) RGBA
 "
 ```
 
-Integration: læg en `image`-node med `"path": "...svg"` i en config (eller brug
-en `tech`-mapping, se næste afsnit) og kør en generering.
+Varianter:
+
+- **SVG i en `image`-node uden tech** (`--extra`-banen):
+  ```bash
+  uv run thumbnail --series tomat-source --bg backgrounds/test.png \
+    --title "SVG" --extra skabeloner/tomat-source/python-200-200.svg
+  ```
+  Forventet: python-logoet øverst højre (100×100).
+- **Bevis at SVG'en er kilden:** slet midlertidigt `"tech": {...}`-linjen i
+  `projects/tomatsource/config.json` og kør kommandoen igen → ikonet forsvinder
+  (der er ingen fallback-fil i `skabeloner/fælles/teknologier/`). Ret linjen
+  tilbage bagefter.
 
 ---
 
@@ -221,6 +247,37 @@ print(resolve_tech_icon('nope', {}))        # None
 "
 rm skabeloner/fælles/teknologier/pyfake.png
 ```
+
+### Hurtig test via `ts2.sh`
+
+`ts2.sh` virker som `ts.sh`, men tager også valgfrie teknologi-ikoner som
+argumenter. Ikonerne samles til en liste og sendes til `--tech tech=...`:
+
+```bash
+./ts2.sh "Python live" "Raket opsendelse" python javascript
+```
+
+- Uden ikoner opfører scriptet sig præcis som `ts.sh`.
+- `javascript` findes ikke → `Warning: no icon found for technology 'javascript'.`
+  på stderr (python-ikonet indsættes stadig).
+- Baggrunden er `ts72-liftoff.jpeg` → output: `output/ts72-liftoff-c.jpg`.
+
+### Template med valgfrie tech-ikoner: `config-tech.json`
+
+`config-tech.json` er en kopi af `config.json`, hvor der allerede er en
+`tech`-mapping (`"python"`) og en `tech`-pladsholder (id `tech`) — klar til at
+modtage ikoner via `--tech`. Brug den som udgangspunkt for nye serier:
+
+```bash
+mkdir -p projects/min-serie
+cp config-tech.json projects/min-serie/config.json
+# rediger efter behov
+uv run thumbnail --project min-serie --series tomat-source \
+  --bg backgrounds/test.png --text "main=Tech" --tech tech=python
+```
+
+Uden `--tech` (og uden `icons`-felt på pladsholderen) tegnes ingen ikoner —
+ikonerne er netop valgfrie.
 
 ---
 
