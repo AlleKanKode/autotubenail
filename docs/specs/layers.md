@@ -68,22 +68,29 @@ Planlæg  følgende tre ting:
 
 ## 4. Tilføjelser efter første implementering
 
-### `tech`-node (teknologi-ikoner)
+### `icons`-node (ikon-lister)
 
-En `tech`-node er en pladsholder for en vandret række af ikoner:
+En `icons`-node er en generisk pladsholder for en liste af ikoner (vandret eller
+lodret). Den er domæne-uafhængig og kan bruges til teknologi-ikoner,
+ingridienser eller hvad som helst:
 
 ```json
-{ "type": "tech", "id": "tech", "x": 60, "y": 930, "height": 70, "spacing": 10 }
+{ "type": "icons", "id": "icons", "x": 60, "y": 930,
+  "height": 70, "spacing": 10, "direction": "horizontal",
+  "icons": ["python", { "name": "tomat", "height": 40 }] }
 ```
 
-- `id` matcher `--tech <id>=<navn1>,<navn2>` CLI (default `tech`).
-- Uden CLI bruges node'ens `icons`-felt (`["python", "javascript"]`) hvis sat.
-- Et navn oversættes til en ikonfil via seriens `tech`-mapping:
-  `"tech": { "python": "skabeloner/.../python.svg" }`.
-  Findes navnet ikke i mappingen, ledes der i
-  `skabeloner/fælles/teknologier/<navn>.svg|.png`.
-- Ikonerne skaleres til `height` og placeres vandret med `spacing` (default 10).
-- Teknologi-ikoner er typisk SVG (se under Billedformater).
+- `id` matcher `--icons [<id>=]<navn1>,<navn2>` CLI (default `icons`).
+- Navne slås op i projektets `icons/`-mappe (`icons/` i roden uden `--project`)
+  som `<navn>.svg` eller `<navn>.png`. Opslaget er case-insensitive, og SVG
+  foretrækkes hvis begge findes. Der findes **ingen eksplicit mapping**.
+- Uden CLI bruges node'ens eget `icons`-felt; hvert element kan være en streng
+  (navnet) eller et objekt med `name`/`path` + valgfri `width`/`height`.
+- Node'ens `width`/`height` er standardstørrelse; et element i listen kan
+  overskrive dem.
+- `direction` er `horizontal` (default) eller `vertical` (`horz`/`vert` ok).
+- `spacing` (default 10) er afstanden mellem ikonerne.
+- Ikoner er typisk SVG eller PNG (se under Billedformater).
 
 ### `align: "distributed"`
 
@@ -117,6 +124,6 @@ billeder. Dermed virker al skalerings-/composite-logik uændret.
 
 | Fil | Indhold |
 |-----|---------|
-| `nodes.py` | `Node` (basis: `x`, `y`, `width`, `height`, `z_index`, `visible`) + `RectNode`, `ImageNode`, `TextNode`, `GroupNode`, `TechNode`. Factory: `Node.from_data()`. Hver node har `bounds(ctx)` og `render(canvas, abs_x, abs_y, ctx, constraint)`. |
-| `assets.py` | `load_image()` (inkl. SVG), `resolve_tech_icon()`. |
+| `nodes.py` | `Node` (basis: `x`, `y`, `width`, `height`, `z_index`, `visible`) + `RectNode`, `ImageNode`, `TextNode`, `GroupNode`, `IconNode`. Factory: `Node.from_data()`. Hver node har `bounds(ctx)` og `render(canvas, abs_x, abs_y, ctx, constraint)`. |
+| `assets.py` | `load_image()` (inkl. SVG), `resolve_icon()` (case-insensitive opslag i `icons/`). |
 | `generator.py` | `ThumbnailGenerator`-facade + CLI. |

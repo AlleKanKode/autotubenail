@@ -10,24 +10,24 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-from assets import load_image, resolve_tech_icon
+from assets import load_image, resolve_icon
 
 
 class RenderContext:
     """Shared state passed down the tree while rendering.
 
     Attributes:
-        texts: dict mapping placeholder id -> text content.
+        texts: dict mapping placeholder id -> text content (--text).
         extra_path: path to the dynamic image injected via --extra.
-        tech: dict mapping placeholder id -> list of tech names (--tech).
-        tech_map: dict mapping tech name -> icon file path (from config).
+        icons: dict mapping placeholder id -> list of icon names (--icons).
+        icons_dir: folder the icon names are resolved from (``icons/``).
     """
 
-    def __init__(self, texts=None, extra_path=None, tech=None, tech_map=None):
+    def __init__(self, texts=None, extra_path=None, icons=None, icons_dir=None):
         self.texts = texts or {}
         self.extra_path = extra_path
-        self.tech = tech or {}
-        self.tech_map = tech_map or {}
+        self.icons = icons or {}
+        self.icons_dir = icons_dir
 
 
 def composite(canvas, overlay, x, y):
@@ -35,6 +35,24 @@ def composite(canvas, overlay, x, y):
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     layer.paste(overlay, (x, y))
     return Image.alpha_composite(canvas, layer)
+
+
+def scale_image(img, width=None, height=None):
+    """Scale an image to an explicit size, or proportionally to one side.
+
+    With both width and height the image is stretched to that exact size.
+    With only one of them the other side keeps the original aspect ratio.
+    With neither, the image is returned unchanged.
+    """
+    if width is None and height is None:
+        return img
+    if width is not None and height is not None:
+        return img.resize((width, height), Image.LANCZOS)
+    if width is not None:
+        ratio = width / img.width
+        return img.resize((width, round(img.height * ratio)), Image.LANCZOS)
+    ratio = height / img.height
+    return img.resize((round(img.width * ratio), height), Image.LANCZOS)
 
 
 class Node:
@@ -66,8 +84,8 @@ class Node:
             return TextNode(data, parent)
         if node_type == "group":
             return GroupNode(data, parent)
-        if node_type == "tech":
-            return TechNode(data, parent)
+        if node_type == "icons":
+            return IconNode(data, parent)
         raise ValueError(f"Unknown node type: {node_type}")
 
     def bounds(self, ctx):
@@ -130,15 +148,7 @@ class ImageNode(Node):
         return ctx.extra_path if self.dynamic else self.path
 
     def _scaled(self, img):
-        if self.width is None and self.height is None:
-            return img
-        if self.width is not None and self.height is not None:
-            return img.resize((self.width, self.height), Image.LANCZOS)
-        if self.width is not None:
-            ratio = self.width / img.width
-            return img.resize((self.width, round(img.height * ratio)), Image.LANCZOS)
-        ratio = self.height / img.height
-        return img.resize((round(img.width * ratio), self.height), Image.LANCZOS)
+        return scale_image(img, self.width, self.height)
 
     def bounds(self, ctx):
         if self.width is not None and self.height is not None:
@@ -305,43 +315,92 @@ class GroupNode(Node):
         return canvas
 
 
-class TechNode(Node):
-    """Placeholder that renders a row of technology icons.
+def normalize_direction(value):
+    """Normalize a direction value to ``horizontal`` or ``vertical``.
 
-    The row is filled from ``ctx.tech[self.node_id]`` (set via --tech),
-    falling back to ``icons`` in the config. Each name is resolved to an
-    icon file through ``ctx.tech_map`` or the shared technologies folder.
+    Accepts the full words as well as the short forms ``horz``/``vert``
+    (and their first letters).
+    """
+    value = str(value).lower()
+    if value in ("vertical", "vert", "v"):
+        return "vertical"
+    return "horizontal"
+
+
+def make_icon_entry(entry):
+    """Normalize a config icon entry to a dict of name, width and height.
+
+    An entry may be a plain string (the icon name) or an object with a
+    ``name``/``path`` plus optional ``width``/``height`` overrides.
+    """
+    if isinstance(entry, str):
+        return {"name": entry, "width": None, "height": None}
+    return {
+        "name": entry.get("name") or entry.get("path"),
+        "width": entry.get("width"),
+        "height": entry.get("height"),
+    }
+
+
+class IconNode(Node):
+    """A horizontal or vertical list of icons.
+
+    Icons are referenced by name and resolved from ``ctx.icons_dir`` (the
+    project's ``icons/`` folder) as ``<name>.svg`` or ``<name>.png``. The
+    node's ``width``/``height`` are the defaults; each entry in the config's
+    ``icons`` list may override them. The list can be supplied from the
+    command line with ``--icons <id>=<name1>,<name2>`` (or fall back to the
+    config's own ``icons`` list).
     """
 
     def __init__(self, data, parent=None):
         super().__init__(data, parent)
-        self.node_id = data.get("id", "tech")
+        self.node_id = data.get("id", "icons")
+        self.direction = normalize_direction(data.get("direction", "horizontal"))
         self.spacing = data.get("spacing", 10)
-        self.defaults = data.get("icons", [])
+        self.entries = [make_icon_entry(entry) for entry in data.get("icons", [])]
 
-    def _icon_paths(self, ctx):
-        names = ctx.tech.get(self.node_id, self.defaults)
-        paths = []
+    def _entry_for(self, name):
+        """Return the config entry matching an icon name, or None."""
+        for entry in self.entries:
+            if entry["name"] and entry["name"].lower() == name.lower():
+                return entry
+        return None
+
+    def _resolved_icons(self, ctx):
+        """Return a list of (path, width, height) tuples to draw.
+
+        Names come from ``ctx.icons[self.node_id]`` when set on the command
+        line, otherwise from the config's ``icons`` list. Sizes use the
+        matching config entry's override when present, else the node default.
+        """
+        names = ctx.icons.get(self.node_id)
+        if names is None:
+            names = [entry["name"] for entry in self.entries]
+
+        resolved = []
         for name in names:
-            path = resolve_tech_icon(name, ctx.tech_map)
-            if path:
-                paths.append(path)
-            else:
-                print(f"Warning: no icon found for technology '{name}'.", file=sys.stderr)
-        return paths
+            path = resolve_icon(name, ctx.icons_dir)
+            if not path:
+                print(
+                    f"Warning: no icon found for '{name}' in {ctx.icons_dir}.",
+                    file=sys.stderr,
+                )
+                continue
+            entry = self._entry_for(name)
+            width = entry["width"] if entry and entry["width"] is not None else self.width
+            height = entry["height"] if entry and entry["height"] is not None else self.height
+            resolved.append((path, width, height))
+        return resolved
 
     def _render(self, canvas, node_x, node_y, ctx, constraint):
-        paths = self._icon_paths(ctx)
-        if not paths:
-            return canvas
-        if self.height is None:
-            raise ValueError("tech node requires a 'height' so icons can be scaled")
-        cursor = node_x
-        for path in paths:
-            img = load_image(path)
-            ratio = self.height / img.height
-            w = round(img.width * ratio)
-            img = img.resize((w, self.height), Image.LANCZOS)
-            canvas = composite(canvas, img, cursor, node_y)
-            cursor += w + self.spacing
+        icons = self._resolved_icons(ctx)
+        cursor_x, cursor_y = node_x, node_y
+        for path, width, height in icons:
+            img = scale_image(load_image(path), width, height)
+            canvas = composite(canvas, img, cursor_x, cursor_y)
+            if self.direction == "vertical":
+                cursor_y += img.height + self.spacing
+            else:
+                cursor_x += img.width + self.spacing
         return canvas

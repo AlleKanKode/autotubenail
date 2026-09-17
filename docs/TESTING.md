@@ -2,7 +2,7 @@
 
 Denne guide beskriver, hvordan man manuelt tester de funktioner, der blev
 implementeret i refaktoreringen: node-klasserne i `nodes.py`, `distributed`-alignment,
-baggrund fra config, SVG-understøttelse og teknologi-ikoner (`tech`-node).
+baggrund fra config, SVG-understøttelse og ikon-lister (`icons`-node).
 
 Alle kommandoer køres fra projektroden. Kør først `uv sync` for at installere
 afhængighederne (inkl. `cairosvg`).
@@ -143,61 +143,58 @@ uv run thumbnail --project tomatsource --series tomat-source \
 ## 4. SVG-understøttelse
 
 Den hurtigste måde at teste SVG er at indsætte python-ikonet i thumbnailet.
-`projects/tomatsource/config.json` mapper `"python"` →
-`skabeloner/tomat-source/python-200-200.svg` (en SVG-fil), og der ligger en
-`tech`-node klar nederst i venstre panel. Én kommando tester dermed både
-tech-ikoner og SVG-rasterisering:
+Ikonet ligger i `projects/tomatsource/icons/python.svg`, og der ligger en
+`icons`-node klar nederst i venstre panel. Én kommando tester dermed både
+ikon-listen og SVG-rasteriseringen:
 
 ```bash
 uv run thumbnail --project tomatsource --series tomat-source \
   --text "main=Python ikon" --text "subtitle=SVG test" \
-  --tech tech=python
+  --icons python
 ```
 
 Forventet: `output/ts71-metal-raket-c.jpg` (config'ens `background` bruges
 automatisk). Åbn filen og tjek at python-logoet (blå/gul) står nederst i det
 sorte venstre panel (~x 20–90, y 930–1000).
 
-Check direkte at cairosvg rasteriserer SVG'en (mappingen i linje 5 i config'en
-peger på `.svg`):
+Check direkte at cairosvg rasteriserer SVG'en:
 
 ```bash
 uv run python -c "
 from assets import load_image
-img = load_image('skabeloner/tomat-source/python-200-200.svg')
+img = load_image('projects/tomatsource/icons/python.svg')
 print(img.size, img.mode)   # (200, 200) RGBA
 "
 ```
 
-Varianter:
+Variant — **SVG i en `image`-node** (`--extra`-banen):
 
-- **SVG i en `image`-node uden tech** (`--extra`-banen):
-  ```bash
-  uv run thumbnail --series tomat-source --bg backgrounds/test.png \
-    --title "SVG" --extra skabeloner/tomat-source/python-200-200.svg
-  ```
-  Forventet: python-logoet øverst højre (100×100).
-- **Bevis at SVG'en er kilden:** slet midlertidigt `"tech": {...}`-linjen i
-  `projects/tomatsource/config.json` og kør kommandoen igen → ikonet forsvinder
-  (der er ingen fallback-fil i `skabeloner/fælles/teknologier/`). Ret linjen
-  tilbage bagefter.
+```bash
+uv run thumbnail --series tomat-source --bg backgrounds/test.png \
+  --title "SVG" --extra projects/tomatsource/icons/python.svg
+```
+
+Forventet: python-logoet øverst højre (100×100).
 
 ---
 
-## 5. Teknologi-ikoner (`tech`-node)
+## 5. Ikon-lister (`icons`-node)
 
-`projects/tomatsource/config.json` indeholder en `tech`-node (id `tech`,
-`height: 70`) i venstre panel og mappingen `"python"` → `python-200-200.svg`.
+> Der findes også en dedikeret guide: [test-icons.md](test-icons.md).
+
+`projects/tomatsource/config.json` har en `icons`-node (id `icons`,
+`height: 70`) i venstre panel. Navne slås op i `projects/tomatsource/icons/`
+(`python.svg`, `tomat.png`) — case-insensitive, SVG og PNG kan blandes frit.
 
 Enkelt ikon:
 
 ```bash
 uv run thumbnail --project tomatsource --series tomat-source \
-  --text "main=Tech" --text "subtitle=Ikoner" --tech tech=python
+  --text "main=Ikon" --text "subtitle=Et ikon" --icons python
 ```
 
-Forventet: `output/ts71-metal-raket-c.jpg`, python-ikonet i venstre panel
-nederst. Kør med og uden `--tech` og sammenlign bunden af venstre panel:
+Forventet: `output/ts71-metal-raket-c.jpg`, ikonet i venstre panel nederst. Kør
+med og uden `--icons` og sammenlign bunden af venstre panel:
 
 ```bash
 uv run python - <<'EOF'
@@ -207,20 +204,17 @@ from nodes import Node, RenderContext
 gen = ThumbnailGenerator("projects/tomatsource/config.json")
 sc = gen.config["series"]["tomat-source"]
 
-def render(tech_names=None):
+def render(icons=None):
     img = gen._load_and_resize_bg("projects/tomatsource/backgrounds/ts71-metal-raket.jpg")
-    ctx = RenderContext(
-        texts={"main": "Tech", "subtitle": "Ikoner"},
-        tech={"tech": tech_names} if tech_names else {},
-        tech_map=sc.get("tech", {}),
-    )
+    ctx = RenderContext(texts={"main": "Ikon", "subtitle": "Liste"},
+                        icons=icons or {}, icons_dir="projects/tomatsource/icons")
     for layer in sc["layers"]:
         img = Node.from_data(layer).render(img, 0, 0, ctx, (0, 0, img.width, img.height))
     return img
 
-base, with_tech = render(), render(["python"])
+base, with_icons = render(), render({"icons": ["python"]})
 diff = sum(1 for x in range(0, 200) for y in range(900, 1050)
-           if base.getpixel((x, y)) != with_tech.getpixel((x, y)))
+           if base.getpixel((x, y)) != with_icons.getpixel((x, y)))
 print("differing pixels:", diff)   # > 0, fx ~4000
 EOF
 ```
@@ -229,55 +223,44 @@ Flere ikoner (liste) og ukendt navn (advarsel, ingen fejl):
 
 ```bash
 uv run thumbnail --project tomatsource --series tomat-source \
-  --text "main=To ikoner" --tech tech=python,python
+  --text "main=To ikoner" --icons python,tomat
 uv run thumbnail --project tomatsource --series tomat-source \
-  --text "main=Advarsel" --tech tech=findesikke   # Warning til stderr
+  --text "main=Advarsel" --icons findesikke   # Warning til stderr
 ```
 
-Ikon-opslag uden mapping (fallback til `skabeloner/fælles/teknologier/`):
-
-```bash
-mkdir -p skabeloner/fælles/teknologier
-cp skabeloner/python.png skabeloner/fælles/teknologier/pyfake.png
-uv run python -c "
-from assets import resolve_tech_icon
-print(resolve_tech_icon('python', {}))      # skabeloner/fælles/teknologier/python.svg? kun hvis den findes
-print(resolve_tech_icon('pyfake', {}))      # skabeloner/fælles/teknologier/pyfake.png
-print(resolve_tech_icon('nope', {}))        # None
-"
-rm skabeloner/fælles/teknologier/pyfake.png
-```
+Retning (vandret/lodret) og størrelser sættes i config — se
+[test-icons.md](test-icons.md).
 
 ### Hurtig test via `ts2.sh`
 
-`ts2.sh` virker som `ts.sh`, men tager også valgfrie teknologi-ikoner som
-argumenter. Ikonerne samles til en liste og sendes til `--tech tech=...`:
+`ts2.sh` virker som `ts.sh`, men tager også valgfrie ikon-navne som argumenter.
+Navnene samles til en liste og sendes til `--icons`:
 
 ```bash
-./ts2.sh "Python live" "Raket opsendelse" python javascript
+./ts2.sh "Python live" "Raket opsendelse" python tomat
 ```
 
 - Uden ikoner opfører scriptet sig præcis som `ts.sh`.
-- `javascript` findes ikke → `Warning: no icon found for technology 'javascript'.`
-  på stderr (python-ikonet indsættes stadig).
+- Ukendt navn → `Warning: no icon found for '<navn>' in ...` på stderr (de
+  øvrige ikoner indsættes stadig).
 - Baggrunden er `ts72-liftoff.jpeg` → output: `output/ts72-liftoff-c.jpg`.
 
-### Template med valgfrie tech-ikoner: `config-tech.json`
+### Template med default-ikoner: `config-icons.json`
 
-`config-tech.json` er en kopi af `config.json`, hvor der allerede er en
-`tech`-mapping (`"python"`) og en `tech`-pladsholder (id `tech`) — klar til at
-modtage ikoner via `--tech`. Brug den som udgangspunkt for nye serier:
+`config-icons.json` er en kopi af `config.json` med en `icons`-node, der har en
+default-liste (`["python"]`) — klar til at blive udvidet eller overstyret via
+`--icons`. Brug den som udgangspunkt for nye serier:
 
 ```bash
-mkdir -p projects/min-serie
-cp config-tech.json projects/min-serie/config.json
-# rediger efter behov
+mkdir -p projects/min-serie/icons
+cp config-icons.json projects/min-serie/config.json
+# læg ikoner i projects/min-serie/icons/
 uv run thumbnail --project min-serie --series tomat-source \
-  --bg backgrounds/test.png --text "main=Tech" --tech tech=python
+  --bg backgrounds/test.png --text "main=Ikoner" --icons python
 ```
 
-Uden `--tech` (og uden `icons`-felt på pladsholderen) tegnes ingen ikoner —
-ikonerne er netop valgfrie.
+Uden `--icons` tegner default-listen; er hverken `--icons` eller `icons`-feltet
+sat, tegnes intet — ikonerne er netop valgfrie.
 
 ---
 
@@ -288,7 +271,7 @@ ikonerne er netop valgfrie.
 | `uv run thumbnail --series findes-ikke --bg backgrounds/test.png --title "test"` | `Error: Series 'findes-ikke' not found in config.` |
 | `uv run thumbnail --series tomat-source --bg findes-ikke.png --title "test"` | `Error: File not found: ./findes-ikke.png` |
 | `uv run thumbnail --series tomat-source --title "test"` | `Error: no background given. Pass --bg or set 'background' in config.` |
-| `uv run thumbnail --project tomatsource --series tomat-source --tech barenavn` | `Error: --tech expects <id>=<names>, got 'barenavn'` |
+| `uv run thumbnail --project tomatsource --series tomat-source --icons ,` | `Error: --icons expects at least one name, got ','` |
 | `uv run thumbnail --series tomat-source --bg backgrounds/test.png --text barenavn` | `Error: --text expects <id>=<text>, got 'barenavn'` |
 
 Alle skal afslutte med exit-kode 1 (stderr).
@@ -297,39 +280,43 @@ Alle skal afslutte med exit-kode 1 (stderr).
 
 ## 7. Regressionstest — pixel-identitet med gamle motor
 
-Refaktoreringen må ikke ændre udseendet. Den gamle motor kan hentes fra git
-(uden at røre arbejdskopien) og sammenlignes pixel-for-pixel med den nye:
+Refaktoreringen må ikke ændre udseendet. Den oprindelige (pre-refaktorering)
+motor hentes fra git — commit `14a4474` — uden at røre arbejdskopien, og
+sammenlignes pixel-for-pixel med den nye:
 
 ```bash
 mkdir -p /tmp/opencode/old
-git show HEAD:generator.py > /tmp/opencode/old/generator.py
+git show 14a4474:generator.py > /tmp/opencode/old/generator.py
 
 uv run python - <<'EOF'
-import sys
-sys.path.insert(0, "/tmp/opencode/old")
+import importlib.util
 from PIL import Image
 
-import generator as old
+# GAMMEL motor (pre-refaktorering) lastes fra /tmp
+spec = importlib.util.spec_from_file_location("old_generator", "/tmp/opencode/old/generator.py")
+old = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(old)
+
+# NY motor
+from generator import ThumbnailGenerator
 from nodes import Node, RenderContext
 
-texts = {"main": "Raket test", "subtitle": "Refaktoreret"}
 cfg = "projects/tomatsource/config.json"
+bg = "projects/tomatsource/backgrounds/ts71-metal-raket.jpg"
+texts = {"main": "Raket test", "subtitle": "Refaktoreret"}
 
-# GAMMEL motor (egen _render_layer / _load_and_resize_bg)
 oldgen = old.ThumbnailGenerator(cfg)
-img_old = oldgen._load_and_resize_bg("projects/tomatsource/backgrounds/ts71-metal-raket.jpg")
+img_old = oldgen._load_and_resize_bg(bg)
 for layer in oldgen.config["series"]["tomat-source"]["layers"]:
     img_old = oldgen._render_layer(img_old, layer, 0, 0, texts, None)
 
-# NY motor (node-klasserne)
-newgen = old.ThumbnailGenerator(cfg)
-img_new = newgen._load_and_resize_bg("projects/tomatsource/backgrounds/ts71-metal-raket.jpg")
+newgen = ThumbnailGenerator(cfg)
+img_new = newgen._load_and_resize_bg(bg)
 ctx = RenderContext(texts=texts)
 for layer in newgen.config["series"]["tomat-source"]["layers"]:
     img_new = Node.from_data(layer).render(img_new, 0, 0, ctx, (0, 0, img_new.width, img_new.height))
 
-a = img_old.convert("RGB")
-b = img_new.convert("RGB")
+a, b = img_old.convert("RGB"), img_new.convert("RGB")
 diff = sum(1 for x in range(a.width) for y in range(a.height) if a.getpixel((x, y)) != b.getpixel((x, y)))
 print("differing pixels:", diff, "/", a.width * a.height)   # 0 / 2073600
 EOF
@@ -337,10 +324,11 @@ EOF
 
 Forventet: `differing pixels: 0 / 2073600`.
 
-Bemærk: `projects/tomatsource/config.json` er opdateret med `background`,
-`tech`-mapping og en `tech`-node. Uden `--tech` renderer `tech`-noden intet, så
-pixel-identiteten holder. Den gamle motor forstår dog ikke `background`-feltet —
-derfor angives baggrundsstien eksplicit i testen ovenfor.
+Bemærk: `projects/tomatsource/config.json` er opdateret med `background` og en
+`icons`-node. Uden `--icons` renderer `icons`-noden intet (ingen default-liste),
+og den gamle motor springer ukendte node-typer over — så pixel-identiteten
+holder. Den gamle motor forstår dog ikke `background`-feltet, derfor angives
+baggrundsstien eksplicit i testen ovenfor.
 
 ---
 
@@ -348,5 +336,5 @@ derfor angives baggrundsstien eksplicit i testen ovenfor.
 
 ```bash
 uv run python -m py_compile generator.py nodes.py assets.py
-uv run thumbnail --help    # viser --bg (valgfri) og --tech
+uv run thumbnail --help    # viser --bg (valgfri) og --icons
 ```

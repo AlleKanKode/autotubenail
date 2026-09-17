@@ -9,12 +9,14 @@ Fase 1 bygger Pillow-motoren. En Flutter-frontend kommer senere.
 ```
 skabeloner/fælles/       — fælles skrifttyper og logoer
 skabeloner/<serie>/      — seriespecifikke aktiver (overlays, logoer)
+icons/                   — ikoner til `icons`-noder (roden uden --project)
 backgrounds/               — 16:9 baggrundsbilleder (input)
-projects/<navn>/         — brugerprojekt med egen config.json og egne baggrunde
+projects/<navn>/         — brugerprojekt med egen config.json, baggrunde og icons/
 output/                  — genererede thumbnails
 config.json              — template/reference (kopieres til projects/)
+config-icons.json        — template med en `icons`-node (default-liste)
 generator.py             — CLI + ThumbnailGenerator-facade
-nodes.py                 — node-klasserne (Rect, Image, Text, Group, Tech)
+nodes.py                 — node-klasserne (Rect, Image, Text, Group, Icons)
 assets.py                — billed-/font-indlæsning inkl. SVG (cairosvg)
 ```
 
@@ -27,7 +29,7 @@ uv sync
 ## Brug
 
 ```bash
-uv run thumbnail --series <navn> [--bg <sti>] [--title <tekst>] [--text <id>=<tekst> ...] [--extra <sti>] [--tech <id>=<navn>...]
+uv run thumbnail --series <navn> [--bg <sti>] [--title <tekst>] [--text <id>=<tekst> ...] [--extra <sti>] [--icons [<id>=]<navn>...]
 ```
 
 | Flag | Påkrævet | Beskrivelse |
@@ -38,7 +40,7 @@ uv run thumbnail --series <navn> [--bg <sti>] [--title <tekst>] [--text <id>=<te
 | `--title` | Nej | Titeltekst (alias for `--text main=...`). Brug `\n` for linjeskift |
 | `--text` | Nej | Tekst til en pladsholder-id: `--text main="..." --text subtitle="..."`. Repeatable. `--text` vinder over `--title` for samme id |
 | `--extra` | Nej | Sti til ekstra logo (skaleres efter config) |
-| `--tech` | Nej | Teknologi-ikoner til en pladsholder-id: `--tech tech=python,javascript`. Repeatable. Ikonerne indsættes i en `tech`-node med samme id |
+| `--icons` | Nej | Ikoner til en pladsholder-id: `--icons python,tomat` (default id `icons`) eller `--icons række=python,tomat`. Repeatable. Navnene slås op i `icons/`-mappen |
 
 Uden `--project` bruges rodens `config.json` (template). Med `--project` bruges `projects/<navn>/config.json`.
 
@@ -65,14 +67,13 @@ uv run thumbnail --project min-serie --series min-serie --bg ...
 
 Hver serie har et `layers`-array med en træstruktur af lag. En serie kan også
 deklarere en `background` (relativ sti — med `--project` løses den mod
-projektfolderen) og en `tech`-mapping fra teknologinavn til ikonfil:
+projektfolderen):
 
 ```json
 {
   "series": {
     "<name>": {
       "background": "backgrounds/intro.png",
-      "tech": { "python": "skabeloner/fælles/teknologier/python.svg" },
       "layers": [
         { "type": "rect", "color": [0, 0, 0, 199], "x": 0, "y": 0, "width": 400, "height": 1080 },
         { "type": "image", "path": "...", "x": 1200, "y": 0 },
@@ -83,7 +84,7 @@ projektfolderen) og en `tech`-mapping fra teknologinavn til ikonfil:
           ]
         },
         { "type": "image", "dynamic": true, "x": 1750, "y": 50, "width": 100, "height": 100 },
-        { "type": "tech", "id": "tech", "x": 60, "y": 930, "height": 70, "spacing": 10 },
+        { "type": "icons", "id": "icons", "x": 60, "y": 930, "height": 70, "spacing": 10, "direction": "horizontal" },
         { "type": "text", "value": "", "font": "...", "size": 65, "color": [255,255,255], "align": "left", "x": 1300, "y": 400, "line_spacing": 15 }
       ]
     }
@@ -99,7 +100,7 @@ projektfolderen) og en `tech`-mapping fra teknologinavn til ikonfil:
 | `rect` | Solid RGBA-rektangel | `color`, `width`, `height` |
 | `image` | Billedfil (PNG/JPEG/SVG). `dynamic: true` = path fra `--extra` CLI. `width`/`height` valgfri skalering — angiv begge for præcis størrelse, eller én for proportionel skalering | `path`, `dynamic`, `width`, `height` |
 | `text` | Tekst. Wrapper altid; auto-shrinker font ved overflow. `value` overstyres af `--text <id>=<tekst>` CLI (default id `main`) | `id`, `value`, `font`, `size`, `color`, `align`, `line_spacing` |
-| `tech` | Pladsholder for en vandret række af teknologi-ikoner. Fyldes af `--tech <id>=<navn1>,<navn2>` (default id `tech`), evt. fra `icons` i config. Ikonerne skaleres til `height` | `id`, `icons`, `height`, `spacing` |
+| `icons` | Pladsholder for en liste af ikoner (vandret eller lodret). Navne slås op i `icons/`-mappen (`<navn>.svg|.png`, case-insensitive). Fyldes af `--icons [<id>=]<navn1>,<navn2>` (default id `icons`), evt. fra `icons` i config | `id`, `icons`, `direction`, `spacing`, `width`, `height` |
 
 ### Fælles felter
 
@@ -134,20 +135,33 @@ Tekst wrapper altid og begrænses af sin container:
 - Overskrider teksten alligevel arealet ved minimums-fonten, tegnes den og en
   advarsel printes til stderr.
 
-### Teknologi-ikoner
+### Ikon-lister
 
-En `tech`-node er en pladsholder for en vandret række af ikoner. Hvilke ikoner
-der indsættes bestemmes af `--tech <id>=<navn1>,<navn2>` CLI (repeatable).
-Uden CLI bruges node'ens eget `icons`-felt, hvis det er sat.
+En `icons`-node er en pladsholder for en liste af ikoner — domæne-uafhængigt.
+Den kan bruges til teknologi-ikoner, ingridienser eller hvad som helst. Hvilke
+ikoner der indsættes bestemmes af `--icons [<id>=]<navn1>,<navn2>` CLI
+(repeatable; default id `icons`). Uden CLI bruges node'ens eget `icons`-felt,
+hvis det er sat.
 
-Et navn oversættes til en fil via seriens `tech`-mapping. Findes navnet ikke
-der, ledes der i `skabeloner/fælles/teknologier/<navn>.svg|.png`. Ikonerne
-skaleres til `height` og lægges vandret med `spacing` (default 10) mellem sig.
+Navnene slås op i projektets `icons/`-mappe (`icons/` i roden uden `--project`)
+som `<navn>.svg` eller `<navn>.png` — case-insensitive, SVG foretrækkes hvis
+begge findes. Der findes ingen eksplicit mapping: læg blot filen i `icons/`.
+
+Størrelse angives i config: node'ens `width`/`height` er standard, og hvert
+element i `icons`-listen kan overskrive med sin egen `width`/`height`:
+
+```json
+{ "type": "icons", "id": "icons", "x": 60, "y": 930,
+  "height": 70, "spacing": 10, "direction": "horizontal",
+  "icons": ["python", { "name": "tomat", "height": 40 }] }
+```
+
+- `direction`: `horizontal` (default) eller `vertical` (`horz`/`vert` accepteres).
+- `spacing`: afstand mellem ikonerne (default 10).
 
 ```bash
-# Python-ikon i tech-pladsholderen (id "tech" er default)
-uv run thumbnail --project tomatsource --series tomat-source \
-  --tech tech=python,javascript
+# Ikoner i icons-pladsholderen (default id "icons")
+uv run thumbnail --project tomatsource --series tomat-source --icons python,tomat
 ```
 
 ### Baggrund
@@ -175,8 +189,8 @@ Første lag i `layers`-arrayet = nederst. `z_index` kan overstyre.
 ## Test
 
 Se `docs/TESTING.md` for den fulde testguide (distributed-alignment, SVG,
-tech-ikoner, baggrund fra config, fejlhåndtering og pixel-regressionstest).
-Hurtige smoke tests:
+ikon-lister, baggrund fra config, fejlhåndtering og pixel-regressionstest).
+Se `docs/test-icons.md` for en dedikeret ikon-liste-testguide. Hurtige smoke tests:
 
 ```bash
 # Smoke test (global template)
@@ -199,9 +213,9 @@ uv run thumbnail --project my-test --series tomat-source \
 uv run thumbnail --project tomatsource --series tomat-source \
   --text "main=Config bg" --text "subtitle=Uden --bg"
 
-# Teknologi-ikoner
+# Ikon-liste (SVG + PNG fra icons/ mappen)
 uv run thumbnail --project tomatsource --series tomat-source \
-  --text "main=Tech" --text "subtitle=Ikoner" --tech tech=python
+  --text "main=Ikoner" --text "subtitle=Liste" --icons python,tomat
 
 # Distribueret (fuld-justeret) tekst
 uv run thumbnail --project tomatsource --series tomat-source \

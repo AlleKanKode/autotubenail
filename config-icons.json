@@ -1,7 +1,6 @@
 {
   "series": {
     "tomat-source": {
-      "tech": { "python": "skabeloner/python.png" },
       "layers": [
         { "type": "rect", "color": [0, 0, 0, 199], "x": 0, "y": 0, "width": 400, "height": 1080 },
         { "type": "rect", "color": [200, 50, 50, 180], "x": 1200, "y": 0, "width": 400, "height": 1080 },
@@ -13,7 +12,11 @@
           ]
         },
         { "type": "image", "dynamic": true, "x": 1750, "y": 50, "width": 100, "height": 100 },
-        { "type": "tech", "id": "tech", "x": 60, "y": 930, "height": 70, "spacing": 10 },
+        {
+          "type": "icons", "id": "icons", "x": 60, "y": 930,
+          "height": 70, "spacing": 10, "direction": "horizontal",
+          "icons": ["python"]
+        },
         { "type": "text", "value": "", "font": "skabeloner/fælles/Ubuntu-Bold.ttf", "size": 65, "color": [255, 255, 255], "align": "left", "x": 1300, "y": 400, "line_spacing": 15 }
       ]
     }

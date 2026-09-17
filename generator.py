@@ -36,7 +36,8 @@ class ThumbnailGenerator:
         image.convert("RGB").save(output_path, "JPEG", quality=85)
         return output_path
 
-    def generate(self, series, bg_path, title=None, extra_path=None, texts=None, tech=None):
+    def generate(self, series, bg_path, title=None, extra_path=None, texts=None,
+                 icons=None, icons_dir=None):
         if series not in self.config["series"]:
             raise ValueError(f"Series '{series}' not found in config.")
         series_config = self.config["series"][series]
@@ -46,8 +47,9 @@ class ThumbnailGenerator:
         if title is not None and "main" not in texts:
             texts["main"] = title
 
-        tech_map = series_config.get("tech", {})
-        ctx = RenderContext(texts=texts, extra_path=extra_path, tech=tech, tech_map=tech_map)
+        ctx = RenderContext(
+            texts=texts, extra_path=extra_path, icons=icons, icons_dir=icons_dir
+        )
         image = self._load_and_resize_bg(bg_path)
         constraint = (0, 0, image.width, image.height)
         layers = sorted(series_config.get("layers", []), key=lambda l: l.get("z_index", 0))
@@ -88,8 +90,8 @@ def main():
         help="Path to an extra logo (e.g. Python logo)"
     )
     parser.add_argument(
-        "--tech", action="append", default=[],
-        help="Technology icons for a placeholder id, as <id>=<name1>,<name2>. Repeatable."
+        "--icons", action="append", default=[],
+        help="Icons for a placeholder id, as [<id>=]<name1>,<name2>. Repeatable."
     )
     args = parser.parse_args()
 
@@ -101,13 +103,14 @@ def main():
         node_id, value = item.split("=", 1)
         texts[node_id] = value
 
-    tech = {}
-    for item in args.tech:
-        if "=" not in item:
-            print(f"Error: --tech expects <id>=<names>, got '{item}'", file=sys.stderr)
+    icons = {}
+    for item in args.icons:
+        node_id, value = item.split("=", 1) if "=" in item else ("icons", item)
+        names = [name.strip() for name in value.split(",") if name.strip()]
+        if not names:
+            print(f"Error: --icons expects at least one name, got '{item}'", file=sys.stderr)
             sys.exit(1)
-        node_id, value = item.split("=", 1)
-        tech[node_id] = [name.strip() for name in value.split(",") if name.strip()]
+        icons[node_id] = names
 
     try:
         config_path = f"projects/{args.project}/config.json" if args.project else "config.json"
@@ -116,12 +119,13 @@ def main():
             raise ValueError(f"Series '{args.series}' not found in config.")
         series_config = generator.config["series"][args.series]
 
+        base = f"projects/{args.project}" if args.project else "."
+
         bg_path = args.bg or series_config.get("background")
         if not bg_path:
             print("Error: no background given. Pass --bg or set 'background' in config.", file=sys.stderr)
             sys.exit(1)
         if not os.path.isabs(bg_path):
-            base = f"projects/{args.project}" if args.project else "."
             bg_path = os.path.join(base, bg_path)
 
         output = generator.generate(
@@ -130,7 +134,8 @@ def main():
             title=args.title,
             extra_path=args.extra,
             texts=texts,
-            tech=tech,
+            icons=icons,
+            icons_dir=os.path.join(base, "icons"),
         )
         print(f"Thumbnail saved: {output}")
     except (FileNotFoundError, ValueError, KeyError) as e:
